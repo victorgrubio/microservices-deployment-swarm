@@ -1,0 +1,56 @@
+version: "3.3"
+networks:
+  gatv_network:
+    driver: overlay
+    attachable: true
+  host:
+    external:
+      name: "host"
+services:
+  parking_detector:
+    image: vgarcia96/docker:parking-detector-1.1.0
+    environment:
+      - KAFKA_SERVER=192.168.0.160
+      - KAFKA_PORT=29092
+    networks:
+      - host
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    entrypoint: ["python3", "main.py", "-p", "B", "-z", "gatv", "--kafka"]
+    deploy:
+      placement:
+        constraints: [
+          node.role == worker,
+          node.labels.slow != true,
+          node.labels.kafka != true
+        ]
+  parking_django:
+    image: vgarcia96/docker:streaming-api-django-1.0.0
+    environment:
+      - KAFKA_CONSUMER_CONFIG={"bootstrap.servers":"kafka:9092","group.id":"parking"}
+      - GRIP_URL=http://pushpin:5561
+    networks:
+      - gatv_network
+    deploy:
+      placement:
+        constraints: [
+          node.role == worker,
+          node.labels.slow != true,
+          node.labels.kafka != true
+        ]
+  parking_api_client:
+    image: vgarcia96/docker:streaming-api-client-1.0.0
+    environment:
+      - API_HOST=pushpin
+      - API_PORT=7999/parking-api
+      - KAFKA_TOPIC=parking.gatv.predictions
+    networks:
+      - gatv_network
+    deploy:
+      placement:
+        constraints: [
+          node.role == worker,
+          node.labels.kafka != true
+        ]

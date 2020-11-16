@@ -1,0 +1,34 @@
+version: "3.3"
+networks:
+  gatv_network:
+    driver: overlay
+    attachable: true
+services:
+  car_api:
+    image: vgarcia96/docker:car-template-api-1.1.0
+    env_file:
+      - ../env/car_template_api.env
+    networks:
+      - gatv_network
+    deploy:
+      placement:
+        constraints: [
+          node.role == worker,
+          node.labels.slow == true
+        ]
+  car_mongo:
+    image: mongo:4.2
+    networks:
+      - gatv_network
+    deploy:
+      placement:
+        constraints: [
+          node.role == worker
+        ]
+volumes:
+  car_mongo_db: 
+    driver: vieux/sshfs
+    driver_opts:
+      sshcmd: "swarmuser@192.168.0.77:/etc/docker/shared/car_mongo_db_data"
+      allow_other: ""
+      password: "gatvswarm"
